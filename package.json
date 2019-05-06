@@ -1,0 +1,22 @@
+{
+  "name": "phaser3-tei-game",
+  "version": "1.1.0",
+  "description": "TEI Game",
+  "scripts": {
+    "build": "webpack",
+    "start": "webpack-dev-server --config webpack.config.js --open"
+  },
+  "author": "Stanislas Fragniere <fragniere.s@hotmail.fr>",
+  "devDependencies": {
+    "clean-webpack-plugin": "^2.0.1",
+    "html-webpack-plugin": "^3.2.0",
+    "ts-loader": "^5.3.3",
+    "typescript": "^3.4.3",
+    "webpack": "^4.28.3",
+    "webpack-cli": "^3.2.1",
+    "webpack-dev-server": "^3.1.14"
+  },
+  "dependencies": {
+    "phaser": "^3.16.2"
+  }
+}
