@@ -3,8 +3,8 @@ import { SimpleGameScene } from './scenes/simple-example.scene'
 
 const config: GameConfig = {
   title: "test cgi",
-  width: 800,
-  height: 600,
+  width: 200,
+  height: 200,
   parent: "phaser-example",
   scene: [ SimpleGameScene ],
   backgroundColor: "#182116"

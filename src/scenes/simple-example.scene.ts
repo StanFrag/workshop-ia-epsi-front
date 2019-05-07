@@ -1,22 +1,12 @@
 import "phaser";
 import { Player } from '../objects/player';
 
-type Callback = (error?: Error, data?: number) => void;
-type PromiseResolve<T> = (value?: T | PromiseLike<T>) => void;
-type PromiseReject = (error?: any) => void;
-
 export class SimpleGameScene extends Phaser.Scene {
 
     gameData: Array<any>; // a supprimer lorsqu'on aura les appels a l'api
-    compteur: number = 0; // a supprimer lorsqu'on aura les appels a l'api
-
-    // playersList: Array<Phaser.GameObjects.TileSprite> = [];
+    compteur: number = 0;
     playersList: Array<Player> = [];
-
-    gameCamera: any;
     roundText: Phaser.GameObjects.Text;
-
-    movePlayerDuration: Number = 3000;
 
     constructor() {
         super({
@@ -31,10 +21,59 @@ export class SimpleGameScene extends Phaser.Scene {
 
     preload(): void {
         // preload de l'ensemble des images/sprites/atlas
-        this.load.image("logo", "../assets/logo.png");
-        this.load.image("map-tiles", "../assets/tilesets/test-tiles.png");
-
         this.load.spritesheet('tiles', '../assets/tilesets/test-tiles.png', { frameWidth: 16, frameHeight: 16 });
+
+        // on recupere le json mock le temps de la creation de l'appel rest
+        this.load.json('mockData', '../assets/json/mock.json');
+    }
+
+    create(): void {
+        // On crée les differents elements du jeu
+
+        // A integrer dans le processus de round pour les modifications de la map a chaque tour
+        this.createMap();
+
+        // on recupere les données du mock preload en cache
+        this.gameData = this.cache.json.get('mockData').data;
+        // initialisation du text de round
+        this.roundText = this.add.text(100, 100, '', { font: '24px Impact', fill: '#FBFBAC' });
+
+        // on lance la partie
+        this.runGame();
+    }
+
+    update(time): void {
+        // Boucle pour les elements interactifs
+    }
+
+    runGame() {
+        this.getDataByIteration(this.compteur).then((gameData: any) => {
+            if (gameData) {
+
+                this.displayRound()
+                .then(() => {return this.playersActions(gameData.players)})
+                .then(() => {
+                        console.log("Fin du round n° ", this.compteur);
+                        this.compteur++;
+                        this.runGame();
+                    })
+                .catch(error => { 
+                    console.log('error: ', error); 
+                });
+            } else {
+                console.log('Fin de la partie');
+                return;
+            }
+        })
+    }
+
+    playersActions(players) {
+        return new Promise((resolve: PromiseResolve<number>, reject: PromiseReject): void => { 
+            this.movePlayer(players, 0, (error, data) => { 
+                if (error) reject(error) 
+                else resolve(data)
+            }); 
+        }); 
     }
 
     // fonction recursive
@@ -56,7 +95,7 @@ export class SimpleGameScene extends Phaser.Scene {
 
             // On fait suivre le nouveau player pour la camera
             // On pourra créer une animation pour que le joueur n'apparaisse pas simplement comme ca
-            this.gameCamera.startFollow(playerRef.sprite, false, 0.1, 0.1);
+            this.cameras.main.startFollow(playerRef.sprite, false, 0.1, 0.1);
 
             index++;
 
@@ -66,7 +105,7 @@ export class SimpleGameScene extends Phaser.Scene {
             const vm = this;
             const playerRef = this.playersList[player.id];
 
-            this.gameCamera.startFollow(playerRef.sprite, false, 0.1, 0.1);
+            this.cameras.main.startFollow(playerRef.sprite, false, 0.1, 0.1);
 
             playerRef.move({posX: player.posX, posY: player.posY}, function() {
                 index++;
@@ -75,19 +114,10 @@ export class SimpleGameScene extends Phaser.Scene {
         }
     }
 
-    playersActions(players) {
-        return new Promise((resolve: PromiseResolve<number>, reject: PromiseReject): void => { 
-            this.movePlayer(players, 0, (error, data) => { 
-                if (error) reject(error) 
-                else resolve(data)
-            }); 
-        }); 
-    }
-
-    getData () {
+    getDataByIteration (iteration) {
         return new Promise((resolve: PromiseResolve<any>, reject: PromiseReject): void => {
             // TODO: recuperation des données depuis l'api rest
-            resolve(this.gameData[this.compteur]);
+            resolve(this.gameData[iteration]);
         }); 
     }
 
@@ -96,91 +126,31 @@ export class SimpleGameScene extends Phaser.Scene {
             const vm = this;
             const text: string = "Round n° " + this.compteur;
 
-            this.roundText.setText(text);
+            if(this.compteur > 0) {
+                this.roundText.setText(text);
 
-            this.roundText.x = this.gameCamera.x - ( this.roundText.width/2);
-            this.roundText.y = this.gameCamera.y - 50;
+                this.roundText.x = this.cameras.main.scrollX + ( this.game.canvas.width / 2) - (this.roundText.width / 2);
+                this.roundText.y = this.cameras.main.scrollY + 50;
 
-            this.roundText.alpha = 0;
-            this.roundText.setVisible(true);
+                this.roundText.alpha = 0;
+                this.roundText.setVisible(true);
 
-            this.tweens.add({
-                targets: this.roundText,
-                alpha: { value: 1, duration: 2000, ease: 'Power1' },
-                onComplete: function () {
-                    vm.roundText.setVisible(false);
-                    resolve();
-                },
-            });
+                this.tweens.add({
+                    targets: this.roundText,
+                    alpha: { value: 1, duration: 2000, ease: 'Power1' },
+                    onComplete: function () {
+                        vm.roundText.setVisible(false);
+                        resolve();
+                    },
+                });
+            }else{
+                resolve();
+            }
+            
         }); 
     }
 
-    runGame() {
-        this.getData().then((gameData: any) => {
-            if (gameData) {
-
-                this.displayRound()
-                .then(() => {return this.playersActions(gameData.players)})
-                .then(() => {
-                        console.log("Fin du round n° ", this.compteur);
-                        this.compteur++;
-                        this.runGame();
-                    })
-                .catch(error => { 
-                    console.log('error: ', error); 
-                });
-            } else {
-                console.log('FIN DU JEU');
-                return;
-            }
-        })
-        
-    }
-
-    create(): void {
-        this.testMap();
-
-
-        this.gameCamera = this.cameras.add(100, 100, 200, 200).setZoom(1);
-        this.gameCamera.setBounds(0, 0, this.game.canvas.width, this.game.canvas.height);
-
-        this.roundText = this.add.text(100, 100, '', { font: '24px Impact', fill: '#FBFBAC' });
-
-        this.gameData = [{
-            players: [
-                {id: 0, user_id: 0, posX: 18, posY: 8},
-                {id: 1, user_id: 0, posX: 12, posY: 16},
-            ]
-        },
-        {
-            players: [
-                {id: 0, user_id: 0, posX: 8, posY: 78},
-                {id: 1, user_id: 0, posX: 132, posY: 84},
-                {id: 2, user_id: 0, posX: 150, posY: 98}
-            ]
-        },
-        {
-            players: [
-                {id: 0, user_id: 0, posX: 58, posY: 178},
-                {id: 1, user_id: 0, posX: 32, posY: 124},
-                {id: 2, user_id: 0, posX: 70, posY: 198}
-            ]
-        },
-        {
-            players: [
-                {id: 0, user_id: 0, posX: 18, posY: 8},
-                {id: 1, user_id: 0, posX: 12, posY: 16},
-                {id: 2, user_id: 0, posX: 150, posY: 98}
-            ]
-        },
-    ];
-
-        this.runGame();
-    }
-
-    update(time): void {}
-
-    testMap() {
+    createMap() {
         const level = [
             [  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0 ],
             [  0,   16,   2,   3,   0,   0,   0,   1,   2,   3,   0 ],
@@ -199,8 +169,5 @@ export class SimpleGameScene extends Phaser.Scene {
         const map = this.make.tilemap({ data: level, tileWidth: 16, tileHeight: 16 });
         const tiles = map.addTilesetImage("tiles");
         const layer = map.createStaticLayer(0, tiles, 0, 0);
-        // layer.setScale(3,3);
-        
-        let test = map.getTileAt(1, 1, true, layer);
     }
 };
